@@ -152,6 +152,20 @@ enum class SlicingMode
     CloseHoles,
 };
 
+// Non-planar slicing modes
+enum class NonPlanarSlicingMode
+{
+    Traditional,    // Standard horizontal plane slicing
+    NonPlanar,      // True non-planar slicing with tilted surfaces
+};
+
+// Types of non-planar surfaces for slicing
+enum class NonPlanarType
+{
+    Conical,        // Conical surface slicing
+    // Future: Spherical, LevelSet, Custom, etc.
+};
+
 enum SupportMaterialPattern {
     smpDefault,
     smpRectilinear, smpRectilinearGrid, smpHoneycomb,
@@ -908,6 +922,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                staggered_inner_seams))
     ((ConfigOptionFloat,               slice_closing_radius))
     ((ConfigOptionEnum<SlicingMode>,   slicing_mode))
+    // Non-planar slicing options
+    ((ConfigOptionEnum<NonPlanarSlicingMode>, nonplanar_slicing_mode))
+    ((ConfigOptionFloat,               cone_angle))
     ((ConfigOptionBool,                enable_support))
     // Automatic supports (generated based on support_threshold_angle).
     ((ConfigOptionEnum<SupportType>,   support_type))

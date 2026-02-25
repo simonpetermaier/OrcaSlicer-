@@ -17,6 +17,7 @@ class LayerRegion;
 using LayerRegionPtrs = std::vector<LayerRegion*>;
 class PrintRegion;
 class PrintObject;
+struct ConeSurface;  // Forward declaration for non-planar slicing
 
 namespace FillAdaptive {
     struct Octree;

@@ -439,6 +439,7 @@ public:
 
     // Called by make_perimeters()
     void slice();
+    void slice_nonplanar();  // Non-planar conical slicing
 
     // Helpers to slice support enforcer / blocker meshes by the support generator.
     std::vector<Polygons>       slice_support_volumes(const ModelVolumeType model_volume_type) const;

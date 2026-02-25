@@ -2645,6 +2645,8 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("Special mode"), L"param_special");
         optgroup->append_single_option_line("slicing_mode", "others_settings_special_mode#slicing-mode");
+        optgroup->append_single_option_line("nonplanar_slicing_mode", "others_settings_special_mode#nonplanar-slicing");
+        optgroup->append_single_option_line("cone_angle", "others_settings_special_mode#cone-angle");
         optgroup->append_single_option_line("print_sequence", "others_settings_special_mode#print-sequence");
         optgroup->append_single_option_line("print_order", "others_settings_special_mode#intra-layer-order");
         optgroup->append_single_option_line("spiral_mode", "others_settings_special_mode#spiral-vase");
@@ -2666,6 +2668,11 @@ void TabPrint::build()
         optgroup->append_single_option_line("fuzzy_skin_octaves", "others_settings_fuzzy_skin#skin-noise-octaves");
         optgroup->append_single_option_line("fuzzy_skin_persistence", "others_settings_fuzzy_skin#skin-noise-persistence");
         optgroup->append_single_option_line("fuzzy_skin_first_layer", "others_settings_fuzzy_skin#apply-fuzzy-skin-to-first-layer");
+
+        optgroup = page->new_optgroup(L("Non-Planar Slicing (Experimental)"));
+        optgroup->append_single_option_line("nonplanar_slicing_mode");
+        optgroup->append_single_option_line("nonplanar_type");
+        optgroup->append_single_option_line("cone_angle");
 
         optgroup = page->new_optgroup(L("G-code output"), L"param_gcode");
         optgroup->append_single_option_line("reduce_infill_retraction", "others_settings_g_code_output#reduce-infill-retraction");

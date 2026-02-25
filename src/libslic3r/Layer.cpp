@@ -1,6 +1,7 @@
 #include "Layer.hpp"
 #include "ClipperUtils.hpp"
 #include "Print.hpp"
+#include "ConicalSlicer.hpp"
 #include "Fill/Fill.hpp"
 #include "ShortestPath.hpp"
 #include "SVG.hpp"

@@ -8,6 +8,7 @@
 #include "Layer.hpp"
 #include "MultiMaterialSegmentation.hpp"
 #include "Print.hpp"
+#include "ConicalSlicer.hpp"
 //BBS
 #include "ShortestPath.hpp"
 #include "libslic3r/Feature/Interlocking/InterlockingGenerator.hpp"
@@ -797,8 +798,20 @@ void PrintObject::slice()
     m_print->throw_if_canceled();
     m_typed_slices = false;
     this->clear_layers();
-    m_layers = new_layers(this, generate_object_layers(m_slicing_params, layer_height_profile, m_config.precise_z_height.value));
-    this->slice_volumes();
+
+    // Check if non-planar slicing is enabled
+    bool use_nonplanar = (m_config.nonplanar_slicing_mode.value == NonPlanarSlicingMode::NonPlanar);
+
+    if (use_nonplanar) {
+        // NON-PLANAR SLICING PATH (experimental)
+        m_print->set_status(5, L("Non-planar conical slicing (experimental)"), PrintBase::SlicingStatus::RELOAD_SCENE);
+        this->slice_nonplanar();
+    } else {
+        // TRADITIONAL PLANAR SLICING PATH (existing code)
+        m_layers = new_layers(this, generate_object_layers(m_slicing_params, layer_height_profile, m_config.precise_z_height.value));
+        this->slice_volumes();
+    }
+
     m_print->throw_if_canceled();
     int firstLayerReplacedBy = 0;
 
@@ -1565,6 +1578,111 @@ std::vector<Polygons> PrintObject::slice_support_volumes(const ModelVolumeType m
         }
     }
     return slices;
+}
+
+void PrintObject::slice_nonplanar()
+{
+    BOOST_LOG_TRIVIAL(info) << "Non-planar conical slicing..." << log_memory_info();
+
+    // Get the mesh from the model object
+    const indexed_triangle_set &mesh = this->model_object()->mesh().its;
+    BoundingBoxf3 bbox = this->model_object()->raw_bounding_box();
+
+    // Get slicing parameters
+    double cone_angle = m_config.cone_angle.value;  // Half-angle in degrees
+    double layer_height = m_slicing_params.layer_height;
+
+    BOOST_LOG_TRIVIAL(info) << "Cone angle: " << cone_angle << "°, Layer height: " << layer_height << " mm";
+
+    // Create ConicalSlicer instance
+    ConicalSlicer slicer(mesh, bbox, cone_angle, layer_height);
+
+    // Generate cone surfaces for all layers
+    std::vector<ConeSurface> cones = slicer.generate_cone_layers();
+
+    BOOST_LOG_TRIVIAL(info) << "Generated " << cones.size() << " cone layers";
+
+    // Create Layer objects to match the number of cones
+    m_layers.reserve(cones.size());
+    auto id = int(m_slicing_params.raft_layers());
+    coordf_t print_z = m_slicing_params.raft_layers() > 0 ?
+                       m_slicing_params.raft_contact_top_z :
+                       m_slicing_params.object_print_z_min;
+
+    for (size_t i = 0; i < cones.size(); ++i) {
+        const ConeSurface &cone = cones[i];
+
+        // Calculate the average z-height for this cone layer
+        // For a cone, we use the apex z-position as the representative height
+        coordf_t slice_z = cone.apex.z();
+        coordf_t height = (i == 0) ? layer_height : layer_height;
+
+        m_layers.emplace_back(new Layer(id++, this, height, print_z, slice_z));
+        print_z += height;
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "Created " << m_layers.size() << " layer objects";
+
+    // Slice the mesh with cone surfaces
+    auto throw_on_cancel = [this]() { this->m_print->throw_if_canceled(); };
+    std::vector<Polygons> polygon_slices = slicer.slice_mesh(cones, throw_on_cancel);
+
+    BOOST_LOG_TRIVIAL(info) << "Sliced mesh, converting to ExPolygons...";
+
+    // Convert Polygons to ExPolygons (handles holes)
+    std::vector<ExPolygons> expolygon_slices = slicer.polygons_to_expolygons(polygon_slices);
+
+    m_print->throw_if_canceled();
+
+    // Allocate regions for each layer
+    for (Layer *layer : m_layers) {
+        layer->m_regions.clear();
+        layer->m_regions.reserve(this->num_printing_regions());
+        for (size_t region_id = 0; region_id < this->num_printing_regions(); ++region_id) {
+            layer->add_region(&this->printing_region(region_id));
+        }
+    }
+
+    // Assign slices to layer regions
+    // For now, assign all slices to the first region
+    // TODO: Handle multi-material and modifiers properly
+    for (size_t layer_idx = 0; layer_idx < m_layers.size() && layer_idx < expolygon_slices.size(); ++layer_idx) {
+        m_print->throw_if_canceled();
+
+        Layer *layer = m_layers[layer_idx];
+        const ExPolygons &slices = expolygon_slices[layer_idx];
+
+        if (!slices.empty() && layer->region_count() > 0) {
+            // Assign to first region as internal surfaces
+            layer->regions()[0]->slices.append(slices, stInternal);
+
+            // Also set the layer's lslices (merged slices from all regions)
+            layer->lslices = slices;
+        }
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "Non-planar slicing complete. Total layers: " << m_layers.size();
+
+    // Update bounding boxes for each layer
+    tbb::parallel_for(
+        tbb::blocked_range<size_t>(0, m_layers.size()),
+        [this](const tbb::blocked_range<size_t>& range) {
+            for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                m_print->throw_if_canceled();
+                Layer &layer = *m_layers[layer_idx];
+                layer.lslices_bboxes.clear();
+                layer.lslices_bboxes.reserve(layer.lslices.size());
+                for (const ExPolygon &expoly : layer.lslices)
+                    layer.lslices_bboxes.emplace_back(get_extents(expoly));
+                layer.backup_untyped_slices();
+            }
+        }
+    );
+
+    if (m_layers.empty())
+        throw Slic3r::SlicingError(L("No layers were detected. You might want to check the cone angle or layer height settings."));
+
+    this->set_done(posSlice);
 }
 
 } // namespace Slic3r

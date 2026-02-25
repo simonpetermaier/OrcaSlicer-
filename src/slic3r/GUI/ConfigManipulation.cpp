@@ -796,8 +796,19 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     bool has_ironing = (config->opt_enum<IroningType>("ironing_type") != IroningType::NoIroning);
     for (auto el : { "ironing_pattern", "ironing_flow", "ironing_spacing", "ironing_angle", "ironing_inset", "ironing_angle_fixed" })
         toggle_line(el, has_ironing);
-    
+
     toggle_line("ironing_speed", has_ironing || has_support_ironing);
+
+    // Non-planar slicing conditional visibility
+    bool is_nonplanar = (config->opt_enum<NonPlanarSlicingMode>("nonplanar_slicing_mode") == NonPlanarSlicingMode::NonPlanar);
+    toggle_line("nonplanar_type", is_nonplanar);
+
+    if (is_nonplanar) {
+        bool is_conical = (config->opt_enum<NonPlanarType>("nonplanar_type") == NonPlanarType::Conical);
+        toggle_line("cone_angle", is_conical);
+    } else {
+        toggle_line("cone_angle", false);
+    }
 
     bool have_sequential_printing = (config->opt_enum<PrintSequence>("print_sequence") == PrintSequence::ByObject);
     // for (auto el : { "extruder_clearance_radius", "extruder_clearance_height_to_rod", "extruder_clearance_height_to_lid" })

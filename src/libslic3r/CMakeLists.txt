@@ -278,6 +278,8 @@ set(lisbslic3r_sources
     KDTreeIndirect.hpp
     Layer.cpp
     Layer.hpp
+    ConicalSlicer.cpp
+    ConicalSlicer.hpp
     LayerRegion.cpp
     libslic3r.cpp
     libslic3r.h

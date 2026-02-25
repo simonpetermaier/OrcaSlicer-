@@ -282,6 +282,17 @@ static t_config_enum_values s_keys_map_SlicingMode {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SlicingMode)
 
+static t_config_enum_values s_keys_map_NonPlanarSlicingMode {
+    { "traditional", int(NonPlanarSlicingMode::Traditional) },
+    { "nonplanar",   int(NonPlanarSlicingMode::NonPlanar) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NonPlanarSlicingMode)
+
+static t_config_enum_values s_keys_map_NonPlanarType {
+    { "conical", int(NonPlanarType::Conical) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(NonPlanarType)
+
 static t_config_enum_values s_keys_map_SupportMaterialPattern {
     { "rectilinear",        smpRectilinear },
     { "rectilinear-grid",   smpRectilinearGrid },
@@ -5533,6 +5544,33 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels.push_back(L("Close holes"));
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionEnum<SlicingMode>(SlicingMode::Regular));
+
+    def = this->add("nonplanar_slicing_mode", coEnum);
+    def->label = L("Non-planar Slicing Mode");
+    def->category = L("Other");
+    def->tooltip = L("Choose between traditional planar slicing and experimental non-planar slicing methods. "
+                   "Non-planar slicing generates curved slicing surfaces (e.g., conical) that can better follow "
+                   "the object's geometry, reducing stair-stepping and improving surface quality on curved parts.");
+    def->enum_keys_map = &ConfigOptionEnum<NonPlanarSlicingMode>::get_enum_values();
+    def->enum_values.push_back("traditional");
+    def->enum_values.push_back("nonplanar");
+    def->enum_labels.push_back(L("Traditional (Planar)"));
+    def->enum_labels.push_back(L("Non-planar (Experimental)"));
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionEnum<NonPlanarSlicingMode>(NonPlanarSlicingMode::Traditional));
+
+    def = this->add("cone_angle", coFloat);
+    def->label = L("Cone Angle");
+    def->category = L("Other");
+    def->tooltip = L("Half-angle of the cone surface for non-planar slicing. "
+                   "Smaller angles create more gradual cones (better for shallow angles), "
+                   "while larger angles create steeper cones (better for vertical features). "
+                   "Typical range: 10-30 degrees.");
+    def->sidetext = L("°");
+    def->min = 1;
+    def->max = 45;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(15.0));
 
     def = this->add("z_offset", coFloat);
     def->label = L("Z offset");
